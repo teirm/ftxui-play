@@ -7,6 +7,7 @@
 #include <ftxui/dom/elements.hpp>  
 #include <ftxui/screen/screen.hpp>
 #include <string>
+#include <thread>
 
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component.hpp"  // for Checkbox, Renderer, Horizontal, Vertical, Menu, Radiobox, Tab, Toggle
@@ -18,11 +19,11 @@
 #include "ftxui/screen/box.hpp"  
 #include "ftxui/dom/node.hpp"
 
+#include <syslog.h>
 
 int main(int argc, const char *argv[]) {
 
     using namespace ftxui;
-
     std::deque<std::string> entries{};
 
     auto input_option = InputOption();
@@ -33,7 +34,9 @@ int main(int argc, const char *argv[]) {
         }
         entries.push_back(input_add_content);
         input_add_content = "";
+        syslog(LOG_ERR, "After enter: %s\n", input_add_content.c_str());
     };
+    Component input = Input(&input_add_content, "", input_option);
 
     auto renderInput = [&](const std::string &line) {
         return hbox({
@@ -50,7 +53,6 @@ int main(int argc, const char *argv[]) {
         }
         return elements;
     };
-    Component input = Input(&input_add_content, "", input_option);
 
     auto display_component = Container::Vertical({
         input});
@@ -58,6 +60,7 @@ int main(int argc, const char *argv[]) {
 
     auto renderer = Renderer(display_component, [&] {
         auto input_win = window(text("Input: "), input->Render());
+        syslog(LOG_ERR, "WTF %s\n", input_add_content.c_str());
         return vbox({
                     vbox(text_render()) | frame | size(HEIGHT, EQUAL, 25) | border, 
                     input_win});
@@ -65,4 +68,6 @@ int main(int argc, const char *argv[]) {
 
     auto screen = ScreenInteractive::Fullscreen();
     screen.Loop(renderer);
+
+    return 0;
 }
