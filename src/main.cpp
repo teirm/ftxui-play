@@ -8,6 +8,7 @@
 #include <ftxui/screen/screen.hpp>
 #include <string>
 #include <thread>
+#include <mutex>
 
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component.hpp"  // for Checkbox, Renderer, Horizontal, Vertical, Menu, Radiobox, Tab, Toggle
@@ -19,55 +20,82 @@
 #include "ftxui/screen/box.hpp"  
 #include "ftxui/dom/node.hpp"
 
-#include <syslog.h>
-
 int main(int argc, const char *argv[]) {
-
     using namespace ftxui;
-    std::deque<std::string> entries{};
 
+    struct user {
+        std::string name;
+        Color name_color;
+        std::string input;
+    };
+
+    std::deque<user> entries{};
+    std::mutex deque_lock;
     auto input_option = InputOption();
+    user main_user{"Tofumimikyu:", Color::Green, {}};
     std::string input_add_content;
     input_option.on_enter = [&] {
-        if (entries.size() > 25) {
+        main_user.input = input_add_content;
+        deque_lock.lock();
+        if (entries.size() > 19) {
             entries.pop_front();
         }
-        entries.push_back(input_add_content);
+        entries.push_back(main_user);
+        deque_lock.unlock();
         input_add_content = "";
-        syslog(LOG_ERR, "After enter: %s\n", input_add_content.c_str());
     };
     Component input = Input(&input_add_content, "", input_option);
 
-    auto renderInput = [&](const std::string &line) {
+    auto renderInput = [&](const user u) {
         return hbox({
-                text("Line:"),
+                text(u.name) | color(u.name_color),
                 separator(),
-                text(line),
+                text(u.input),
                 });
     };
 
-    auto text_render = [&] {
+    auto main_renderer = Renderer(input, [&] {
+        auto input_win = window(text("Input: "), 
+                            hbox({input->Render()})|inverted);
+
+        
         Elements elements;
         for (auto &entry : entries) {
             elements.push_back(renderInput(entry));
         }
-        return elements;
-    };
 
-    auto display_component = Container::Vertical({
-        input});
-
-
-    auto renderer = Renderer(display_component, [&] {
-        auto input_win = window(text("Input: "), input->Render());
-        syslog(LOG_ERR, "WTF %s\n", input_add_content.c_str());
         return vbox({
-                    vbox(text_render()) | frame | size(HEIGHT, EQUAL, 25) | border, 
-                    input_win});
+                    vbox(std::move(elements)) | frame | size(HEIGHT, EQUAL, 20) | border, 
+                    input_win });
     });
 
     auto screen = ScreenInteractive::Fullscreen();
-    screen.Loop(renderer);
+    
+    bool run_maru = true;
+    user maru_user{"Maru:", Color::BlueViolet, {}};
+    std::array<std::string, 3> maru_lines{"Nyan", "Meow", "Fffft"};
+    std::thread maru([&] {
+        int counter = 0;
+        while (run_maru) {
+            maru_user.input = maru_lines[counter];          
+            counter = (counter + 1) % 3;
+            deque_lock.lock();
+            if (entries.size() > 19) {
+                entries.pop_front();
+            }
+            entries.push_back(maru_user);
+            deque_lock.unlock();
+            
+            using namespace std::chrono_literals;
+            screen.PostEvent(Event::Custom);
+            std::this_thread::sleep_for(1s);
+        }
+    });
+
+    screen.Loop(main_renderer);
+    
+    run_maru = false;
+    maru.join();
 
     return 0;
 }
