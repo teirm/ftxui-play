@@ -28,11 +28,11 @@ int main(int argc, const char *argv[]) {
         Color name_color;
         std::string input;
     };
+    user main_user{"Tofumimikyu:", Color::Green, {}};
 
     std::deque<user> entries{};
     std::mutex deque_lock;
     auto input_option = InputOption();
-    user main_user{"Tofumimikyu:", Color::Green, {}};
     std::string input_add_content;
     input_option.on_enter = [&] {
         main_user.input = input_add_content;
@@ -64,9 +64,19 @@ int main(int argc, const char *argv[]) {
             elements.push_back(renderInput(entry));
         }
 
+        auto dimensions = Terminal::Size(); 
+
         return vbox({
-                    vbox(std::move(elements)) | frame | size(HEIGHT, EQUAL, 20) | border, 
-                    input_win });
+                hbox({
+                    vbox(
+                        std::move(elements)
+                    ) | frame | size(WIDTH, GREATER_THAN, 200) |  size(HEIGHT, EQUAL, 20) | border, 
+                    vbox({
+                            text("User 1"),
+                            text("User 2"),
+                    }) | frame | size(WIDTH, EQUAL, 60) | border 
+                }), 
+                input_win});
     });
 
     auto screen = ScreenInteractive::Fullscreen();
